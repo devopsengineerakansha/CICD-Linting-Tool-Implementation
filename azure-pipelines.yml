@@ -1,8 +1,70 @@
 trigger: none 
-pool: Default
+pool: DevopsEngineers
 
-steps: 
-- task: PowerShell@2
-  inputs:
-    targetType: 'inline'
-    script: 'Write-Host "Hello World"'
+jobs:
+  - job: 'Linting'
+    displayName: 'Linting Tools Integration'
+    steps:
+    - task: PowerShell@2
+      displayName: 'Biome'
+      continueOnError: true
+      inputs:
+        targetType: 'inline'
+        script: |
+          curl -L https://github.com/biomejs/biome/releases/download/@biomejs/biome@2.3.8/biome-darwin-arm64 -o  $(Agent.ToolsDirectory)/biome 
+                    chmod +x $(Agent.ToolsDirectory)/biome 
+                    $(Agent.ToolsDirectory)/biome lint $(System.DefaultWorkingDirectory)/src
+
+    - task: PowerShell@2
+      displayName : 'Stylelint'
+      continueOnError: true
+      inputs:
+        targetType: 'inline'
+        script: |
+          npm install -g stylelint
+                  npm install -g stylelint-config-standard        
+                  stylelint $(System.DefaultWorkingDirectory)/src --config stylelint.config.mjs
+
+    - task: CmdLine@2
+      inputs:
+        script: 'brew install python'
+
+    - task: Bash@3
+      displayName: 'YamlLint'
+      continueOnError: true
+      inputs:
+        targetType: 'inline'
+        script: |
+            yamllint $(System.DefaultWorkingDirectory)
+
+    - task: Bash@3
+      displayName: 'Markdown'
+      continueOnError: true
+      inputs:
+        targetType: 'inline'
+        script: |
+          npm install -g markdownlint-cli      
+          markdownlint $(System.DefaultWorkingDirectory)
+
+
+  - job: 'InstallNode'      
+    steps: 
+    - task: NodeTool@0
+      inputs:
+        versionSource: 'spec'
+        versionSpec: '16.x'
+
+    - task: PowerShell@2
+      inputs:
+        targetType: 'inline'
+        script: |
+          npm install
+          npm run build
+
+
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(System.DefaultWorkingDirectory)/build'
+        ArtifactName: 'ReactArtifact'
+        publishLocation: 'Container'
